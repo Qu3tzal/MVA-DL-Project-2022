@@ -1,16 +1,19 @@
 import argparse
 import os
 
-from ModelTrainer import train_model
+import models
+import datasets
+from query_embedder import QueryEmbedder
+from model_trainer import train_model
 
 
 def main_training(args):
     """ Entry point for the training task. """
     # Load the dataset.
-    dataset = Dataset(args.dataset).load(args.dataset_dirpath)
+    dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath)
 
     # Load the model or create a new one.
-    model = Model.get_class(args.load_filepath)
+    model = models.get_class(args.load_filepath)
     if args.load_filepath:
         model.load(args.load_filepath)
     else:
@@ -29,10 +32,10 @@ def main_training(args):
 def main_inference(args):
     """ Entry point for the inference task. """
     # Load the dataset.
-    dataset = Dataset(args.dataset).load(args.dataset_dirpath)
+    dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath)
 
     # Load the model.
-    model = Model.get_class(args.load_filepath)
+    model = models.get_class(args.load_filepath)
     model.load(args.load_filepath)
 
     # Prepare the query.
@@ -65,12 +68,12 @@ def parse_arguments() -> dict:
     parser.add_argument('-q', '--query', type=str, help='[INFERENCE ONLY] The query to look evaluate.')
 
     # Dataset arguments.
-    parser.add_argument('-d', '--dataset', type=str, choices=['MS-COCO', 'Flickr-8k'], default='MS-COCO',
+    parser.add_argument('-d', '--dataset', type=str, choices=datasets.AVAILABLE_DATASETS, default='MS-COCO',
                         help='Chooses which dataset to use.')
     parser.add_argument('-dp', '--dataset_dirpath', type=str, help='Sets the directory path to the dataset.')
 
     # Model arguments.
-    parser.add_argument('-m', '--model', choices=['baseline', 'SCN', 'AA'], default='baseline',
+    parser.add_argument('-m', '--model', choices=models.AVAILABLE_MODELS, default='baseline',
                         help='Sets the model to use.')
     parser.add_argument('-l', '--load_filepath', type=str, help='If set, the filepath to the model to load.')
     parser.add_argument('-s', '--save_filepath', type=str, help='If set, the filepath where to save the model.')
