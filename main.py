@@ -40,7 +40,7 @@ def main_inference(args):
 
     # Prepare the query.
     qe = QueryEmbedder()
-    embedded_query = qe.embed(query)
+    embedded_query = qe.encode(args.query)
 
     # Evaluate the query.
     prediction = model.predict(embedded_query, dataset)
