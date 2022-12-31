@@ -31,13 +31,21 @@ def load_glove_weights(filepath):
 
     # Add the pad and unknown tokens.
     vocab.insert(0, '<pad>')
+    vocab.insert(2, '<start>')
+    vocab.insert(3, '<eos>')
     vocab.insert(1, '<unk>')
 
     np_embeddings = np.asarray(embeddings)
     pad_emb = np.zeros((1, np_embeddings.shape[1]))
     unk_emb = np.mean(np_embeddings, axis=0, keepdims=True)
 
-    np_embeddings = np.vstack((pad_emb, unk_emb, np_embeddings))
+    start_emb = np.zeros((1, np_embeddings.shape[1]))
+    for i in range(start_emb.shape[0] // 2):
+        start_emb = 1
+
+    eos_emb = np.ones((1, np_embeddings.shape[1]))
+
+    np_embeddings = np.vstack((pad_emb, start_emb, eos_emb, unk_emb, np_embeddings))
 
     return np.array(vocab), np_embeddings
 
@@ -63,6 +71,11 @@ class QueryEmbedder:
         self.glove_embeddings = self.glove_embeddings / glove_emb_norms
 
         self.embedding_layer = nn.Embedding.from_pretrained(self.glove_embeddings)
+
+        self.pad_token = self.glove_embeddings[0, :]
+        self.start_token = self.glove_embeddings[1, :]
+        self.eos_token = self.glove_embeddings[2, :]
+        self.unk_token = self.glove_embeddings[3, :]
 
     def encode(self, query_string):
         query_tokens = self.tokenizer(query_string)
