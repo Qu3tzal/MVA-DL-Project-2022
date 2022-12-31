@@ -13,6 +13,9 @@ class BaselineModel(nn.Module):
         resnet_modules = list(resnet_model.children())[:-1]
         self.cnn = nn.Sequential(*resnet_modules, nn.Flatten())
 
+        self.visual_feature_embedder = nn.Linear(2048, 50)
+        self.output_projection = nn.Linear(100, 50)
+
         self.lstm = nn.LSTM(
             input_size=50,
             hidden_size=2048,
@@ -23,25 +26,22 @@ class BaselineModel(nn.Module):
             bidirectional=True,
             proj_size=50, # Project into the word embedding space
         )
-        #self.softmax = nn.Softmax()
 
         # Freeze the weights.
         for p in self.cnn.parameters():
             p.requires_grad = False
-        # Replace the FC layer by identity.
-        self.cnn.fc = None
 
     def forward(self, inputs, padded_captions):
         # Run the cnn,
         visual_features = self.cnn(inputs)
+        embedded_visual_features = self.visual_feature_embedder(visual_features)
 
-        # Take the last CNN pool, flatten it, and set it as the LSTM context/hidden value.
+        # Take the last CNN pool, flatten it, project it, and set it add it to the first token of each sequence.
+        visual_padded_captions = padded_captions.clone()
+        visual_padded_captions[:, 1] = padded_captions[:, 1] + embedded_visual_features
+
         # Run the LSTM until we get the <END> token or we reached maximum length.
-        h0, c0 = visual_features, visual_features
-        output, (h_last, c_last) = self.lstm(padded_captions, (h0, c0))
+        concatenated_outputs, (h_last, c_last) = self.lstm(padded_captions)
 
-        #for x in output:
-        #    x = self.softmax(x)
-
-
-        return output
+        outputs = self.output_projection(concatenated_outputs)
+        return outputs
