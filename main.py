@@ -9,18 +9,19 @@ from model_trainer import train_model
 
 def main_training(args):
     """ Entry point for the training task. """
+    # Load the query embedder.
+    qe = QueryEmbedder()
+
     # Load the dataset.
-    dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath)
+    dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath, qe)
 
     # Load the model or create a new one.
-    model = models.get_class(args.load_filepath)
+    model = models.get_class(args.model)(qe)
     if args.load_filepath:
         model.load(args.load_filepath)
-    else:
-        model.initialize()
 
     # Train.
-    training_statistics = train_model(model, dataset)
+    training_statistics = train_model(model, dataset, args)
 
     # Output.
 
@@ -35,7 +36,7 @@ def main_inference(args):
     dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath)
 
     # Load the model.
-    model = models.get_class(args.load_filepath)
+    model = models.get_class(args.load_filepath)()
     model.load(args.load_filepath)
 
     # Prepare the query.
@@ -47,7 +48,6 @@ def main_inference(args):
 
     # Output.
 
-    pass
 
 
 def parse_arguments() -> dict:
@@ -71,12 +71,16 @@ def parse_arguments() -> dict:
     parser.add_argument('-d', '--dataset', type=str, choices=datasets.AVAILABLE_DATASETS, default='MS-COCO',
                         help='Chooses which dataset to use.')
     parser.add_argument('-dp', '--dataset_dirpath', type=str, help='Sets the directory path to the dataset.')
+    parser.add_argument('-p', '--percentage', type=float, help='Amount of the dataset to use.')
 
     # Model arguments.
     parser.add_argument('-m', '--model', choices=models.AVAILABLE_MODELS, default='baseline',
                         help='Sets the model to use.')
     parser.add_argument('-l', '--load_filepath', type=str, help='If set, the filepath to the model to load.')
     parser.add_argument('-s', '--save_filepath', type=str, help='If set, the filepath where to save the model.')
+
+    # Train.
+    parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to train for.')
 
     # Other arguments.
     parser.add_argument('-v', '--verbose', action='store_true',
