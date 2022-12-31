@@ -3,11 +3,11 @@ from scn import SemanticCompositionNetworkModel
 from adaptative_attention import AdaptativeAttentionModel
 
 
-AVAILABLE_MODELS = ['baseline', 'SCN', 'AA']
+AVAILABLE_MODELS = ['Baseline', 'SCN', 'AA']
 
 
 def get_class(classname):
-    if classname == "baseline":
+    if classname == "Baseline":
         return BaselineModel
     elif classname == "SCN":
         return SemanticCompositionNetworkModel
