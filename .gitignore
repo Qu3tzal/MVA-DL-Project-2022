@@ -1,3 +1,5 @@
 .idea/*
 data/*
 pretrained/*
+checkpoints/*
+__pycache__/*
