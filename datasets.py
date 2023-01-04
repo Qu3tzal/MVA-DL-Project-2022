@@ -40,9 +40,7 @@ class CustomFlickr8kDataset(VisionDataset):
         if root[-1] != '/':
             root = root + '/'
         super().__init__(root=root, transform=transform, target_transform=target_transform)
-        self.ids = [
-
-        ]
+        self.ids = []
         self.targets = dict()
 
         with open(annotations_file_filepath, 'rt') as annotations_file:

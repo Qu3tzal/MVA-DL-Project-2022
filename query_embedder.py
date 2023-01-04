@@ -40,13 +40,12 @@ def load_glove_weights(filepath):
     unk_emb = np.mean(np_embeddings, axis=0, keepdims=True)
 
     start_emb = np.zeros((1, np_embeddings.shape[1]))
-    for i in range(start_emb.shape[0] // 2):
-        start_emb = 1
+    for i in range(start_emb.shape[1] // 2):
+        start_emb[0][i] = 1
 
     eos_emb = np.ones((1, np_embeddings.shape[1]))
 
     np_embeddings = np.vstack((pad_emb, start_emb, eos_emb, unk_emb, np_embeddings))
-
     return np.array(vocab), np_embeddings
 
 
@@ -89,6 +88,9 @@ class QueryEmbedder:
                 tokens_indices.append(1)
 
         tokens_indices = torch.from_numpy(np.asarray(tokens_indices)).long()
+        return tokens_indices
+
+    def embed(self, tokens_indices):
         return self.embedding_layer(tokens_indices)
 
     def decode(self, inputs):
