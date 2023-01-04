@@ -1,6 +1,7 @@
 import argparse
 import os
 
+import torch
 import models
 import datasets
 from query_embedder import QueryEmbedder
@@ -18,7 +19,7 @@ def main_training(args):
     # Load the model or create a new one.
     model = models.get_class(args.model)(qe)
     if args.load_filepath:
-        model.load(args.load_filepath)
+        model.load_state_dict(torch.load(args.load_filepath))
 
     # Train.
     training_statistics = train_model(model, dataset, args)
@@ -27,7 +28,7 @@ def main_training(args):
 
     # Save the model if required.
     if args.save_filepath:
-        model.save(args.save_filepath)
+        torch.save(model.state_dict(), args.save_filepath)
 
 
 def main_inference(args):
@@ -37,7 +38,7 @@ def main_inference(args):
 
     # Load the model.
     model = models.get_class(args.load_filepath)()
-    model.load(args.load_filepath)
+    model.load_state_dict(torch.load(args.load_filepath))
 
     # Prepare the query.
     qe = QueryEmbedder()
