@@ -16,6 +16,24 @@ How to use:
     #> 'the wolf is out stop be careful send the rangers stop'
 """
 
+
+def load_glove_vocabulary(filepath):
+    vocab = []
+    with open(filepath, "rt", encoding="utf8") as file:
+        full_content = file.read().strip().split('\n')
+
+    for line in full_content:
+        word = line.split(' ')[0]
+        vocab.append(word)
+
+    vocab.insert(0, '<pad>')
+    vocab.insert(2, '<start>')
+    vocab.insert(3, '<eos>')
+    vocab.insert(1, '<unk>')
+
+    return np.array(vocab)
+
+
 # https://medium.com/mlearning-ai/load-pre-trained-glove-embeddings-in-torch-nn-embedding-layer-in-under-2-minutes-f5af8f57416a
 def load_glove_weights(filepath):
     """ Loads the pre-trained GloVe weights. """

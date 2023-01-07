@@ -1,10 +1,16 @@
 import argparse
 import os
 
+import PIL
 import torch
+import numpy as np
+import matplotlib.pyplot as plt
+
 import models
 import datasets
-from query_embedder import QueryEmbedder
+import metrics
+import inference
+from query_embedder import QueryEmbedder, load_glove_vocabulary
 from model_trainer import train_model
 
 
@@ -31,24 +37,35 @@ def main_training(args):
         torch.save(model.state_dict(), args.save_filepath)
 
 
-def main_inference(args):
+def main_inference(
+        args,
+        load_model_fn, # Function that takes the saved model filepath +
+        get_captions_fn, # Function that takes the paths to the images and
+    ):
     """ Entry point for the inference task. """
-    # Load the dataset.
-    dataset = datasets.load_dataset(args.dataset, args.dataset_dirpath)
+    vocabulary = load_glove_vocabulary("pretrained/glove.6B.50d.txt")
+
+    # Load the database.
+    image_filepaths = [
+        os.path.join(args.dataset_dirpath, x)
+        for x in os.listdir(args.dataset_dirpath)
+        if os.isfile(os.path.join(args.dataset_dirpath, x)) and os.path.splitext(x)[-1] in ["png", "jpg", "jpeg"]
+    ]
 
     # Load the model.
-    model = models.get_class(args.load_filepath)()
-    model.load_state_dict(torch.load(args.load_filepath))
+    model = load_model_fn(args.model, args.load_filepath)
 
-    # Prepare the query.
-    qe = QueryEmbedder()
-    embedded_query = qe.encode(args.query)
+    # Compute the captions for all the images.
+    captions = get_captions_fn(model, image_filepaths, vocabulary)
 
-    # Evaluate the query.
-    prediction = model.predict(embedded_query, dataset)
+    # Compute the score between the captions and the query.
+    scores = inference.compute_query_scores(args.metric, args.query, captions)
 
-    # Output.
+    # Fetch back the best image.
+    best_matching_image_filepath = image_filepaths[np.argmax(scores)]
+    best_matching_image = PIL.Image.open(best_matching_image_filepath)
 
+    plt.imshow(best_matching_image)
 
 
 def parse_arguments() -> dict:
@@ -82,6 +99,10 @@ def parse_arguments() -> dict:
 
     # Train.
     parser.add_argument('-e', '--epochs', type=int, help='Number of epochs to train for.')
+
+    # Inference.
+    parser.add_argument('-mt', '--metric', choices=metrics.AVAILABLE_METRICS, default='BLEU',
+                        help='Sets the metric to use.')
 
     # Other arguments.
     parser.add_argument('-v', '--verbose', action='store_true',
