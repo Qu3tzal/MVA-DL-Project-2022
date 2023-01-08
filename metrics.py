@@ -1,4 +1,5 @@
 import pycocotools as cc
+from typing import List
 
 from nltk.translate.bleu_score import sentence_bleu
 
@@ -14,7 +15,7 @@ def get_fn(fn_name):
         return compute_meteor
 
 
-def compute_bleu(query: list[str], caption: list[str]):
+def compute_bleu(query: List[str], caption: List[str]):
     """
     Computes the BLEU score between the query and the caption.
     Args:
@@ -26,7 +27,7 @@ def compute_bleu(query: list[str], caption: list[str]):
     return sentence_bleu([query], caption)
 
 
-def compute_cider(query: list[str], caption: list[str]):
+def compute_cider(query: List[str], caption: List[str]):
     """
     Computes the CIDEr score between the query and the caption.
     Args:
@@ -38,7 +39,7 @@ def compute_cider(query: list[str], caption: list[str]):
     pass
 
 
-def compute_meteor(query: list[str], caption: list[str]):
+def compute_meteor(query: List[str], caption: List[str]):
     """
     Computes the METEOR score between the query and the caption.
     Args:

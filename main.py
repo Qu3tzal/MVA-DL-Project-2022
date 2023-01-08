@@ -39,33 +39,49 @@ def main_training(args):
 
 def main_inference(
         args,
-        load_model_fn, # Function that takes the saved model filepath +
+        load_model_fn, # Function that takes the name of the model + the saved model filepath + the QE
         get_captions_fn, # Function that takes the paths to the images and
     ):
     """ Entry point for the inference task. """
+    # Load the query embedder.
+    print("Loading the query embedder...")
+    qe = QueryEmbedder()
+
+    print("Loading the GloVe vocabulary...")
     vocabulary = load_glove_vocabulary("pretrained/glove.6B.50d.txt")
 
     # Load the database.
+    print("Loading the image database...")
     image_filepaths = [
         os.path.join(args.dataset_dirpath, x)
         for x in os.listdir(args.dataset_dirpath)
-        if os.isfile(os.path.join(args.dataset_dirpath, x)) and os.path.splitext(x)[-1] in ["png", "jpg", "jpeg"]
+        if os.path.isfile(os.path.join(args.dataset_dirpath, x))# and os.path.splitext(x)[-1] in ["png", "jpg", "jpeg"]
     ]
+    print("\tLoaded {} images.".format(len(image_filepaths)))
 
     # Load the model.
-    model = load_model_fn(args.model, args.load_filepath)
+    print("Loading the model...")
+    model, device = load_model_fn(args.model, args.load_filepath, qe)
 
     # Compute the captions for all the images.
-    captions = get_captions_fn(model, image_filepaths, vocabulary)
+    print("Computing the captions for the images...")
+    captions = get_captions_fn(model, device, image_filepaths, vocabulary)
+    print("Captions:", captions)
 
     # Compute the score between the captions and the query.
+    print("Computing the scores between the captions and the query...")
     scores = inference.compute_query_scores(args.metric, args.query, captions)
+    print("Scores:", scores)
 
     # Fetch back the best image.
+    print("Fetching back the best image...")
     best_matching_image_filepath = image_filepaths[np.argmax(scores)]
     best_matching_image = PIL.Image.open(best_matching_image_filepath)
 
+    print("Best matching image: {}".format(best_matching_image_filepath))
+    print("\tWith score: {}".format(np.max(scores)))
     plt.imshow(best_matching_image)
+    plt.show()
 
 
 def parse_arguments() -> dict:
@@ -122,8 +138,8 @@ def main():
             print('Inference mode requires a query to evaluate.')
             return
 
-        if (not args.dataset) or (not args.dataset_dirpath):
-            print('Inference mode requires a dataset to be used as the database to evaluate the query against.')
+        if not args.dataset_dirpath:
+            print('Inference mode requires a database to evaluate the query against.')
             return
         else:
             if not os.path.isdir(args.dataset_dirpath):
@@ -138,7 +154,8 @@ def main():
                 print('The model filepath doesn\'t exist or is not accessible.')
                 return
 
-        main_inference(args)
+        # In the case of a PyTorch model.
+        main_inference(args, inference.load_pytorch_model, inference.get_captions_pytorch_model)
     # Training mode.
     else:
         if (not args.dataset) or (not args.dataset_dirpath):
