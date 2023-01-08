@@ -129,7 +129,7 @@ def train_model(model, dataset, args):
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=16,
+        batch_size=8,
         collate_fn=custom_collate_fn
     )
     validation_dataloader = torch.utils.data.DataLoader(

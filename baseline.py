@@ -16,49 +16,67 @@ class BaselineModel(nn.Module):
         resnet_modules = list(resnet_model.children())[:-1]
         self.cnn = nn.Sequential(*resnet_modules, nn.Flatten())
 
-        self.visual_feature_embedder = nn.Linear(2048, 50, bias=True)
+        self.visual_feature_embedder = nn.Linear(2048, 100, bias=True)
+        self.hidden_2_embedding = nn.Linear(100, 50, bias=True)
         self.output_projection = nn.Sequential(
-            nn.Linear(100, vocabulary_size, bias=True),
+            nn.Linear(50, vocabulary_size, bias=True),
             nn.LogSoftmax()
         )
 
-        self.lstm = nn.LSTM(
+        self.lstm_cell = nn.LSTMCell(
             input_size=50,
-            hidden_size=2048,
-            num_layers=2,
-            bias=True,
-            batch_first=True,
-            dropout=0.5,
-            bidirectional=True,
-            proj_size=50, # Project into the word embedding space
+            hidden_size=100,
+            bias=True
         )
 
         # Freeze the weights.
         for p in self.cnn.parameters():
             p.requires_grad = False
 
-        # Initialize custom layers.
-        """
-        for p in self.visual_feature_embedder.parameters():
-            torch.nn.init.xavier_normal_(p)
-        for p in self.output_projection.parameters():
-            torch.nn.init.xavier_normal_(p)
-        """
-
     def forward(self, inputs, padded_captions):
         # Embed the captions.
         embedded_padded_captions = self.qe.embed(padded_captions)
 
-        # Run the cnn,
+        # Run the cnn.
         visual_features = self.cnn(inputs)
         embedded_visual_features = self.visual_feature_embedder(visual_features)
 
-        # Take the last CNN pool, flatten it, project it, and set it add it to the first token of each sequence.
-        visual_padded_captions = embedded_padded_captions.clone()
-        visual_padded_captions[:, 1] = embedded_padded_captions[:, 1] + embedded_visual_features
+        # Take the last CNN pool, flatten it, project it, and set it as the initial context.
+        h = torch.zeros(inputs.shape[0], 100).to(inputs.device)
+        c = embedded_visual_features
 
-        # Run the LSTM until we get the <END> token or we reached maximum length.
-        concatenated_outputs, (h_last, c_last) = self.lstm(embedded_padded_captions)
+        # Run the LSTM with teacher forcing.
+        concatenated_outputs = []
+        for i in range(embedded_padded_captions.shape[1]):
+            # Learn with teacher forcing.
+            h, c = self.lstm_cell(embedded_padded_captions[:, i, :], (h, c))
+            concatenated_outputs.append(h)
 
-        outputs = self.output_projection(concatenated_outputs)
+        concatenated_outputs = torch.stack(concatenated_outputs)
+        # Brings hidden states into word embedding space.
+        concatenated_outputs = self.hidden_2_embedding(concatenated_outputs)
+        # Brings word embeddings into vocabulary space.
+        outputs = self.output_projection(concatenated_outputs).permute(1, 0, 2)
         return outputs
+
+    def predict(self, inputs):
+        # Run the cnn.
+        visual_features = self.cnn(inputs)
+        embedded_visual_features = self.visual_feature_embedder(visual_features)
+
+        # Take the last CNN pool, flatten it, project it, and set it as the initial context.
+        h = torch.zeros((inputs.shape[0], 100)).to(inputs.device)
+        c = embedded_visual_features
+
+        # Run the LSTM until we get the <END> token, or we reached maximum length.
+        lstm_outputs = []
+        output = self.qe.start_token.unsqueeze(0).to(inputs.device)
+        for i in range(50):
+            h, c = self.lstm_cell(output, (h, c))
+
+            output = self.hidden_2_embedding(h)
+            lstm_outputs.append(output)
+
+        word_embedding_space_outputs = torch.stack(lstm_outputs)
+        vocabulary_space_outputs = self.output_projection(word_embedding_space_outputs).permute(1, 0, 2)
+        return vocabulary_space_outputs

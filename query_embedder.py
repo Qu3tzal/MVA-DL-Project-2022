@@ -96,6 +96,9 @@ class QueryEmbedder:
 
     def encode(self, query_string):
         query_tokens = self.tokenizer(query_string)
+        query_tokens.insert(0, '<start>')
+        query_tokens.append('<eos>')
+
         tokens_indices = []
         for token in query_tokens:
             idx = np.where(self.glove_vocab == token)[0]
@@ -114,7 +117,7 @@ class QueryEmbedder:
     def decode(self, inputs):
         # Compute cosine similarity between word vectors and the glove weights.
         # Use the argmax of the similarity to get the index.
-        # Use the index to look-up the string.
+        # Use the index to look up the string.
         # Normalize the input vectors.
         inputs = inputs / inputs.pow(2).sum(dim=1).sqrt()[:, None]
         cosine_sim = torch.matmul(inputs, self.glove_embeddings.T)
