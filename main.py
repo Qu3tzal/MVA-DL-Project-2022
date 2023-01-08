@@ -66,7 +66,9 @@ def main_inference(
     # Compute the captions for all the images.
     print("Computing the captions for the images...")
     captions = get_captions_fn(model, device, image_filepaths, vocabulary)
-    print(list(zip(image_filepaths, captions)))
+    print("Captions:")
+    for img_fp, cap in zip(image_filepaths, captions):
+        print("\t'{}': '{}'".format(img_fp, cap))
 
     # Compute the score between the captions and the query.
     print("Computing the scores between the captions and the query...")
