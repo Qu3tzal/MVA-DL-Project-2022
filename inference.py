@@ -47,6 +47,10 @@ def decode_softmax_pytorch(softmax_tensor, vocabulary):
         word = vocabulary[vocab_indices[i]]
         words.append(word)
 
+        # Stop at <eos> token
+        if word == "<eos>":
+            break
+
     caption = " ".join(words)
     return caption
 
@@ -58,9 +62,15 @@ def decode_softmax_numpy(softmax_tensor, vocabulary):
     for i in range(vocab_indices.shape[0]):
         words.append(vocabulary[vocab_indices[i]])
 
-    caption = "".join(words)
+    caption = " ".join(words)
     return caption
 
+
+def filter_captions(captions):
+    for idx, caption in enumerate(captions):
+        caption = caption.replace("<start>", "")
+        caption = caption.replace("<eos>", "")
+        captions[idx] = caption
 
 def get_captions_pytorch_model(model, device, image_filepaths, vocabulary):
     image_transform = Compose([
@@ -76,8 +86,10 @@ def get_captions_pytorch_model(model, device, image_filepaths, vocabulary):
         model_output = model.predict(image_tensor)
         caption = decode_softmax_pytorch(model_output, vocabulary)
 
+        print("Caption length: {}".format(len(caption.split(" "))))
         captions.append(caption)
 
+    filter_captions(captions)
     return captions
 
 

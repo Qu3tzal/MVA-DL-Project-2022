@@ -71,7 +71,7 @@ class BaselineModel(nn.Module):
         # Run the LSTM until we get the <END> token, or we reached maximum length.
         lstm_outputs = []
         output = self.qe.start_token.unsqueeze(0).to(inputs.device)
-        for i in range(50):
+        for i in range(20):
             h, c = self.lstm_cell(output, (h, c))
 
             output = self.hidden_2_embedding(h)
