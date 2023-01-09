@@ -136,7 +136,7 @@ CODE FROM NOTEBOOK
 def main():
     # Constants.
     caption_train_tokenizer_path = 'pretrained/caption_train_tokenizer.pkl'
-    model_path = 'pretrained/modelConcat_1_5.h5'
+    model_path = 'pretrained/modelConcat_1_15.h5'
     dataset_prefix = 'data/MS-COCO/train/'
     use_beam_search = False
     NUM_IMAGES = 100
@@ -201,40 +201,31 @@ def main():
     # Retrieve@k metric = is the ground-truth image within the top-k scores?
     k = range(1, 20)
 
+    # For each caption, retrieve the ground-truth image index.
     index_of_correct_image = [image_ids.index(o) for o in expected_retrieved_image_id]
+
     retrieve_at_k = np.zeros((len(k), 1))
     for i, k_i in enumerate(k):
-        retrieve_at_k[i] = np.mean(
-            np.any(
-                scores[:, index_of_correct_image] > np.sort(scores, axis=1)[:, -k_i],
-                axis=1
-            )
-        )
-
-    """
-    retrieve_at_k = np.zeros((len(k), 1))
-    for k_ in k:
-
-        # Retrieve the top-k indices (in the image_captions_beam array) for each caption.
-        topk_retrieved_indices = np.argpartition(scores, -k)[-k:]
-
-        # Check if the expected_retrieved_image_id is in the top-k indices.
-        for i, ith_topk_retrieved in enumerate(topk_retrieved_indices):
-            # expected_retrieved_image_id[i] is the image id of the ith query.
-            # ith_topk_retrieved is the index of the ith query in the image_captions_beam array.
-            image_ids_ith_topk_retrieved = [image_ids[x] for x in ith_topk_retrieved]
-
-            if expected_retrieved_image_id[i] in image_ids_ith_topk_retrieved:
-                retrieve_at_k[k_] += 1
-
-        retrieve_at_k[k_] /= len(queries_captions)
-    """
+        for j, index in enumerate(index_of_correct_image):
+            if index in np.argsort(scores[j, :])[-k_i:]:
+                retrieve_at_k[i] += 1
+        retrieve_at_k[i] /= len(index_of_correct_image)
 
     print("Retrieval@k:", retrieve_at_k)
 
     plt.plot(k, retrieve_at_k)
     plt.xlabel('k')
     plt.ylabel('Retrieval@k')
+    plt.show()
+
+    print("For query: '{}', image retrieved is: {}".format(queries_captions[0], images_filepaths[np.argmax(scores[0])]))
+    plt.imshow(plt.imread(dataset_prefix + 'images/' + images_filepaths[np.argmax(scores[0])]))
+    plt.show()
+    print("For query: '{}', image retrieved is: {}".format(queries_captions[1], images_filepaths[np.argmax(scores[1])]))
+    plt.imshow(plt.imread(dataset_prefix + 'images/' + images_filepaths[np.argmax(scores[1])]))
+    plt.show()
+    print("For query: '{}', image retrieved is: {}".format(queries_captions[2], images_filepaths[np.argmax(scores[2])]))
+    plt.imshow(plt.imread(dataset_prefix + 'images/' + images_filepaths[np.argmax(scores[2])]))
     plt.show()
 
 if __name__ == "__main__":
