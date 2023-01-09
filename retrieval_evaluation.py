@@ -13,8 +13,17 @@ from keras.models import load_model
 import json
 import random
 import matplotlib.pyplot as plt
+import string
 
 import metrics
+
+
+def tokenizer_fn(input_str):
+    # Lowercase
+    # Remove all punctuation
+    # Remove before/after whitespaces
+    # Split on whitespaces
+    return input_str.lower().translate(str.maketrans('', '', string.punctuation)).strip().split(' ')
 
 
 """
@@ -129,18 +138,19 @@ def main():
     caption_train_tokenizer_path = 'pretrained/caption_train_tokenizer.pkl'
     model_path = 'pretrained/modelConcat_1_5.h5'
     dataset_prefix = 'data/MS-COCO/train/'
-    use_beam_search = True
+    use_beam_search = False
+    NUM_IMAGES = 100
 
-    # Pick 100 random images from the MS-COCO dataset.
+    # Pick NUM_IMAGES random images from the MS-COCO dataset.
     # Because our model was trained on the Flickr-8k dataset.
-    print("Loading 100 random MS-COCO 2014 train dataset images...")
+    print("Loading {} random MS-COCO 2014 train dataset images...".format(NUM_IMAGES))
     images_filepaths = []
     with open('data/MS-COCO/train/captions.json', 'rb') as f:
         mscoco_info = json.load(f)
         image_infos = list(mscoco_info['images'])
         random.shuffle(image_infos)
-        images_filepaths = [o["file_name"] for o in image_infos[0:100]]
-        image_ids = [o["id"] for o in image_infos[0:100]]
+        images_filepaths = [o["file_name"] for o in image_infos[0:NUM_IMAGES]]
+        image_ids = [o["id"] for o in image_infos[0:NUM_IMAGES]]
 
         queries_captions = []
         expected_retrieved_image_id = []
@@ -181,18 +191,30 @@ def main():
     # If the system is well-designed, using a ground truth caption should return the associated image.
     # Use each caption of the 100 images (so 500 captions in total) to compute the scores.
     print("Computing scores...")
-    bleu_fn = metrics.get_fn('bleu')
     scores = np.zeros((len(queries_captions), len(image_captions_beam)))
 
     for i, query_caption in enumerate(tqdm.tqdm(queries_captions)):
         for j, image_fp in enumerate(images_filepaths):
-            scores[i, j] = bleu_fn(image_captions_beam[image_fp], query_caption)
+            scores[i, j] = metrics.compute_bleu(image_captions_beam[image_fp], tokenizer_fn(query_caption))
 
     # From the scores for all the 500 queries, compute the retrieve@k metric.
     # Retrieve@k metric = is the ground-truth image within the top-k scores?
-    k = [1, 2, 5, 10]
+    k = range(1, 20)
+
+    index_of_correct_image = [image_ids.index(o) for o in expected_retrieved_image_id]
+    retrieve_at_k = np.zeros((len(k), 1))
+    for i, k_i in enumerate(k):
+        retrieve_at_k[i] = np.mean(
+            np.any(
+                scores[:, index_of_correct_image] > np.sort(scores, axis=1)[:, -k_i],
+                axis=1
+            )
+        )
+
+    """
     retrieve_at_k = np.zeros((len(k), 1))
     for k_ in k:
+
         # Retrieve the top-k indices (in the image_captions_beam array) for each caption.
         topk_retrieved_indices = np.argpartition(scores, -k)[-k:]
 
@@ -206,6 +228,7 @@ def main():
                 retrieve_at_k[k_] += 1
 
         retrieve_at_k[k_] /= len(queries_captions)
+    """
 
     print("Retrieval@k:", retrieve_at_k)
 
