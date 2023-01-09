@@ -74,7 +74,7 @@ def generate_caption_beam(pred_model, caption_train_tokenizer, photo, max_length
     most_likely_cap = list()
     for j in range(beam_width):
         most_likely_cap.append(list())
-        most_likely_cap[j] =[[caption_train_tokenizer.index_word[most_likely_seq[j]]]]
+        most_likely_cap[j] = [[caption_train_tokenizer.index_word[most_likely_seq[j]]]]
 
     for i in range(max_length):
         temp_prob = np.zeros((beam_width, vocab_size))
@@ -129,9 +129,11 @@ def main():
     caption_train_tokenizer_path = 'pretrained/caption_train_tokenizer.pkl'
     model_path = 'pretrained/modelConcat_1_5.h5'
     dataset_prefix = 'data/MS-COCO/train/'
+    use_beam_search = True
 
     # Pick 100 random images from the MS-COCO dataset.
     # Because our model was trained on the Flickr-8k dataset.
+    print("Loading 100 random MS-COCO 2014 train dataset images...")
     images_filepaths = []
     with open('data/MS-COCO/train/captions.json', 'rb') as f:
         mscoco_info = json.load(f)
@@ -148,9 +150,11 @@ def main():
                 expected_retrieved_image_id.append(o['image_id'])
 
     # Load the model.
+    print("Loading model...")
     base_model = VGG16(include_top=True)
     feature_extract_pred_model = Model(inputs=base_model.input, outputs=base_model.get_layer('fc2').output)
 
+    print("Loading tokenizer...")
     caption_train_tokenizer = load(open(caption_train_tokenizer_path, 'rb'))
     max_length = 33
     pred_model = load_model(model_path)
@@ -163,20 +167,26 @@ def main():
 
     image_captions_beam = dict()
 
-    for image_fp in images_filepaths:
+    print("Generating captions...")
+    for image_fp in tqdm.tqdm(images_filepaths):
         photo = extract_feature(feature_extract_pred_model, dataset_prefix + 'images/' + image_fp)
-        caption, prob = generate_caption_beam(pred_model, caption_train_tokenizer, photo, max_length, vocab_size,
-                                              beam_width)
-        caption = ''.join(caption[np.argmax(prob)])
-        image_captions_beam[image_fp] = caption
+        if use_beam_search:
+            beam_captions, prob = generate_caption_beam(pred_model, caption_train_tokenizer, photo, max_length, vocab_size, beam_width)
+            generated_caption = ''.join(beam_captions[np.argmax(prob)])
+        else:
+            generated_caption = generate_caption(pred_model, caption_train_tokenizer, photo, max_length)
+        image_captions_beam[image_fp] = generated_caption
 
     # For each image we have 5 ground truth captions.
     # If the system is well-designed, using a ground truth caption should return the associated image.
     # Use each caption of the 100 images (so 500 captions in total) to compute the scores.
+    print("Computing scores...")
     bleu_fn = metrics.get_fn('bleu')
-    scores = np.zeros((len(queries_captions),))
-    for i, image_fp in enumerate(tqdm.tqdm(images_filepaths)):
-        scores[i] = bleu_fn(image_captions_beam[image_fp], queries_captions[image_fp][j])
+    scores = np.zeros((len(queries_captions), len(image_captions_beam)))
+
+    for i, query_caption in enumerate(tqdm.tqdm(queries_captions)):
+        for j, image_fp in enumerate(images_filepaths):
+            scores[i, j] = bleu_fn(image_captions_beam[image_fp], query_caption)
 
     # From the scores for all the 500 queries, compute the retrieve@k metric.
     # Retrieve@k metric = is the ground-truth image within the top-k scores?
